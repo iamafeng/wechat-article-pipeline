@@ -39,7 +39,8 @@ description: 将一个或多个网页链接整合为个人微信公众号文章�
 
 接受一个或多个 URL，以及可选的主题、角度、目标读者、个人经历、写作 Skill、输出目录和终点。
 
-- **写作技能可插拔**：通过 `writing_skill` 指定任意写作技能。未指定时按 `references/writing-styles.md` 的默认顺序选择（`khazix-writer` → `writing-style-plain`）。本仓库已内置这两个风格，clone 后开箱可用。Codex 下用 `$<技能名>` 语法，Claude Code 与 WorkBuddy 下加载同名技能。风格的放置规则、默认顺序与新增方法见 references/writing-styles.md。
+- **写作技能可插拔**：通过 `writing_skill` 指定任意写作技能。未指定时按 `references/writing-styles.md` 的默认顺序选择（`khazix-writer` → `writing-style-plain`）。本仓库已内置三个风格（`khazix-writer`、`writing-style-plain`、`writing-style-healing`），clone 后开箱可用。Codex 下用 `$<技能名>` 语法，Claude Code 与 WorkBuddy 下加载同名技能。风格的放置规则、默认顺序与新增方法见 references/writing-styles.md。
+- **无链接兜底（默认走 aihot 热点选题）**：未提供任何 URL 且未指定写作主题时，默认调用 `aihot` 技能查询当前 AI 热点，整理 3—6 条候选（标题 + 一句话摘要 + 链接）交给用户选择要写哪一条；用户选定后再把该热点条目作为来源进入阶段一。若 `aihot` 技能不可用，则改为直接询问用户「想写哪个主题，或提供一条链接」，**不冒充热点来源、不凭空生成热点文章**。详见阶段一前置。
 - 排版主题支持 `basic`（默认）与 `static-motion`。用户选择静态动感时，读取 `references/static-motion.md`，并使用 `scripts/build-static-motion.mjs` 将章节锚点转换为微信兼容的内联 HTML；新文章应通过 `--anchors <json>` 传入本篇的 `{needle,label}` 锚点，避免沿用旧稿默认锚点。
 - 未指定公众号作者时使用「吖枫」。文章来源作者只属于来源元数据，不得自动写入公众号作者字段。
 - **输出目录已预设**：默认输出到项目根目录下的 `公众号草稿/<YYYY-MM-DD>-<slug>/`（本仓库已提前创建该目录，草稿产物直接落在仓库内）。仍可通过输入参数 `output_dir` 覆盖，例如 `output_dir: 我的草稿/2026-09-14-xxx`。任务目录结构见 references/artifact-contract.md。
@@ -49,6 +50,17 @@ description: 将一个或多个网页链接整合为个人微信公众号文章�
 启动后创建任务目录并按 references/artifact-contract.md 保存状态。对超过两个来源或需要保存公众号草稿的任务，先给出简短执行计划，然后自主推进。
 
 ## 阶段一：读取与解析
+
+### 阶段一（前置）：无链接时的热点选题
+
+若本次未提供任何 URL，且用户未指定写作主题，先确定写什么，再进入下方「逐个读取 URL」：
+
+1. 检查当前运行时是否已安装 `aihot` 技能（或能通过 `https://aihot.virxact.com/api/v1/...` 匿名只读查询）。三平台均可使用 `aihot`：WorkBuddy / Claude Code 下加载该技能，Codex 下按 `aihot` 技能用 `curl` 调用其 API。
+2. 若 `aihot` 可用：调用它获取当前 AI 热点（默认 `/api/v1/items?mode=selected&window=24h&limit=10`，或按「当前最热」用 `/api/v1/hot-topics`），整理 3—6 条候选（标题 + 一句话摘要 + `links.aihot` 链接）交给用户选择要写哪一条。用户选定后，以该热点条目对应的原始链接（`links.original`）作为来源 URL，继续下方「逐个读取 URL」。
+3. 若 `aihot` 不可用：不冒充、不编造热点，改为直接询问用户「想写哪个主题，或提供一条链接」；拿到明确主题或链接后再继续。
+4. 无论哪条路径，正式进入写作阶段前都必须有确定的来源（用户提供的链接，或用户选定的热点条目原始链接，或用户明确给出的主题 + 素材）。**禁止在没有任何来源的情况下凭空生成「热点文章」**。
+
+### 阶段一（正文）：读取与解析
 
 逐个读取 URL，不因一个来源失败而丢弃其他来源。
 
@@ -190,6 +202,7 @@ writing-brief.md 中的来源归属只服务于内部核验，不等于公开文
 - **生图后端可插拔**：WorkBuddy 有内置 ImageGen（腾讯混元，免费按积分、无需 Key），默认使用。Codex 与 Claude Code 无内置生图，使用 `scripts/generate-image-agnes.mjs` 走 OpenAI 兼容外部后端（默认网关 `https://apihub.agnes-ai.com/v1`，默认模型 `agnes-image-2.0-flash`，密钥从环境变量 `AGNES_API_KEY` 读取，不硬编码）。WorkBuddy 下切换到 Agnes 需用户当次明确选择且环境变量存在；任一不满足即退回内置或标记 blocked，**绝不静默走外部计费路径**。
 - **配图规划（可选）**：配图规划技能用于概念/流程/数据图的视觉结构规划，需另行安装；未安装时直接用所选后端生成。要求文字精确的架构/流程图建议改用确定性渲染（Mermaid/SVG）。
 - **封面专项**：封面优先高质量档，中文标题封面可优先即梦（jimeng）等中文场景更强的后端；封面与近期文章做 SHA-256 去重与构图/主色差异检查。
+- **无链接兜底（可选 aihot）**：未提供 URL 时，流水线默认调用 `aihot` 技能查询当前 AI 热点并整理候选供用户选择；`aihot` 未安装时改为询问，不冒充热点来源。该技能为匿名只读、无需 Key，WorkBuddy / Claude Code 直接加载，Codex 按其 SKILL.md 用 `curl` 调用 API。
 - **浏览器能力按运行时映射**：读取来源与保存草稿的浏览器操作，在 Codex 下走 CDP / chrome-devtools MCP，Claude Code 下走 Playwright 或 chrome-devtools MCP，WorkBuddy 下走 agent-browser。见 references/browser-publishing.md、browser-recovery.md、runtime-compatibility.md。
 - **输出目录已预设**：默认 `公众号草稿/<YYYY-MM-DD>-<slug>/`（仓库根目录，已提前创建），支持通过 `output_dir` 覆盖；该目录已加入 .gitignore，草稿产物留在本地、不随仓库推送。
 - **Codex 运行时文件**：`agents/openai.yaml` 为 Codex/OpenAI Agents 运行时定义，仅 Codex 读取；Claude Code 与 WorkBuddy 忽略该文件，不影响运行。

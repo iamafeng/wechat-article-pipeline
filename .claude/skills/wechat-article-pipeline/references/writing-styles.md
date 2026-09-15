@@ -19,8 +19,9 @@ Agent Skills 的发现规则是：
 ```
 .codex/skills/            .claude/skills/           .workbuddy/skills/
 ├─ wechat-article-pipeline/   （流水线本体，唯一入口）
-├─ khazix-writer/             （风格 A）
-└─ writing-style-plain/       （风格 B）
+├─ khazix-writer/             （风格 A：人格化长文）
+├─ writing-style-plain/       （风格 B：中性干净）
+└─ writing-style-healing/     （风格 C：治愈系，需显式指定）
 ```
 
 ## 二、关联方式：参数 + 本文件
@@ -40,12 +41,16 @@ Agent Skills 的发现规则是：
 |---|---|---|---|
 | `khazix-writer` | 人格化。数字生命卡兹克的公众号长文口吻，"有见识的普通人在认真聊一件打动他的事" | 想要鲜明个人风格、偏 AI/科技叙事的长文 | MIT（版权：数字生命卡兹克，见该目录 LICENSE） |
 | `writing-style-plain` | 中性。干净直白，不带人格面具，去 AI 腔 | 技术解读、产品说明、行业观察；或"不想像某个具体的人"时 | 本仓库自研，MIT |
+| `writing-style-healing` | 治愈系。温暖克制、不煽情不鸡汤，把"说不出口的小东西"准确写出，留余味 | 情绪类选题、人物故事、生活观察、品牌软文；或读者"想被理解一次"时 | 本仓库自研，MIT |
 
 **默认顺序**：未指定 `writing_skill` 时，优先 `khazix-writer`；若环境中没有，退到
-`writing-style-plain`；两个都没有才要求用户指定。
+`writing-style-plain`；两个都没有才要求用户指定。`writing-style-healing` 不进默认自动选择，
+**需显式写 `writing_skill: writing-style-healing`** —— 它只适合情绪/生活类选题，硬核、数据驱动、
+争议性强或需要明确结论的题材用它反而会拧巴。
 
 把 khazix-writer 放前面是因为它自带完整的四层自检和素材消费规则，长文质量更稳。
-想要中性文风时显式写 `writing_skill: writing-style-plain`。
+想要中性文风时显式写 `writing_skill: writing-style-plain`；想要治愈系时显式写
+`writing_skill: writing-style-healing`，并尽量提供真实个人素材（治愈系一旦虚构，信任会崩塌）。
 
 ## 四、如何新增一个风格
 
