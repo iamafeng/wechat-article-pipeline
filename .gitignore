@@ -1,0 +1,16 @@
+# 依赖
+node_modules/
+
+# 系统与编辑器
+.DS_Store
+Thumbs.db
+*.log
+
+# 草稿产物：留在本地，不随仓库推送
+公众号草稿/*
+!公众号草稿/.gitkeep
+
+# 生图输出与环境变量
+generated-images/
+.env
+*.local
