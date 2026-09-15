@@ -70,16 +70,31 @@ cp -r .workbuddy/skills/* ~/.workbuddy/skills/
 
 默认输出到**项目根目录下已预设的** `公众号草稿/<YYYY-MM-DD>-<slug>/`，产物直接落在仓库内。该目录已在 `.gitignore` 中，草稿只留在本地、不会随仓库推送。想换位置就传 `output_dir`。
 
-## 写作技能：可插拔（重要）
+## 写作风格：内置两个，可继续加
 
-流水线**不绑定、也不打包任何写作技能**。
+流水线不绑定单一文风，通过 `writing_skill: <技能名>` 指定（Codex 下用 `$<技能名>`，Claude Code / WorkBuddy 下加载同名技能）。**仓库已内置两个风格，clone 下来就能写**：
 
-- 未指定时，默认尝试 `khazix-writer`。
-- 但 **khazix-writer 是第三方非公开技能**，需使用者自行获取安装；**本仓库为规避版权风险不予分发**。
-- 任何写作技能，只要能接受流水线给出的「写作交接块」（选题/读者/核心判断/禁编造项/来源归属/语气），就可以接入。
-- 通过 `writing_skill: <技能名>` 指定；Codex 下用 `$<技能名>` 语法，Claude Code 与 WorkBuddy 下加载同名技能。
+| 技能名 | 定位 | 适用 | 许可 |
+| --- | --- | --- | --- |
+| `khazix-writer` | 人格化。数字生命卡兹克的公众号长文口吻 | 想要鲜明个人风格、偏 AI/科技叙事的长文 | MIT，版权归数字生命卡兹克，LICENSE 原件在其目录内 |
+| `writing-style-plain` | 中性。干净直白、去 AI 腔，不带人格面具 | 技术解读、产品说明、行业观察；或「不想像某个具体的人」 | MIT（本仓库自研） |
 
-没装任何写作技能时，写作阶段会停下来等你指定——这是刻意的设计，不是缺陷。
+未指定时按此顺序选：`khazix-writer` → `writing-style-plain`。
+想要中性文风就显式写 `writing_skill: writing-style-plain`。
+
+### 再加一个风格
+
+风格技能必须**与流水线并列**放在同一个 skills 根目录下 —— Agent Skills 的发现规则是
+`<skills 根>/<技能名>/SKILL.md`，塞进流水线子目录里不会被任何运行时发现。
+
+1. 在 skills 根目录下建目录，目录名即技能名（建议 `writing-style-<标识>` 便于识别）。
+2. 目录内放 `SKILL.md`，frontmatter 带 `name` 与 `description`（description 写清触发词）。
+3. 若引用外部作品，**必须**在目录内附对方的 LICENSE 原件。
+4. 在 `wechat-article-pipeline/references/writing-styles.md` 的表格里登记一行。
+5. 三套平台目录各放一份，保持一致。
+
+风格技能应提供：语言规则、结构要求、事实与诚实规则、如何消费「写作交接块」、自带质检清单。
+流水线成稿后会执行写作技能自带的质检，没有质检章节的风格会让这一环落空。
 
 ## 配置
 
@@ -113,7 +128,7 @@ Agnes 后端读系统环境变量，**不硬编码任何密钥**：
 ## 依赖
 
 - **Node 18+**（`scripts/` 下是纯 Node 脚本，无第三方依赖）
-- **一个写作技能**（可插拔，见上；本仓库不分发）
+- **一个写作风格技能**：已内置 `khazix-writer` 与 `writing-style-plain`，无需额外安装
 - 保存草稿需要**已登录的公众号后台浏览器会话**
 
 ## 目录结构
@@ -122,17 +137,21 @@ Agnes 后端读系统环境变量，**不硬编码任何密钥**：
 wechat-article-pipeline/
 ├─ README.md
 ├─ LICENSE
+├─ THIRD-PARTY-NOTICES.md   ← 第三方组件署名与许可
 ├─ .gitignore
-├─ 公众号草稿/            ← 草稿产物（已预设，不推送）
-├─ .codex/skills/wechat-article-pipeline/
-├─ .claude/skills/wechat-article-pipeline/
-└─ .workbuddy/skills/wechat-article-pipeline/
+├─ 公众号草稿/              ← 草稿产物（已预设，不推送）
+├─ .codex/skills/           ← Codex
+│  ├─ wechat-article-pipeline/   ← 流水线本体
+│  ├─ khazix-writer/             ← 风格 A（MIT，第三方）
+│  └─ writing-style-plain/       ← 风格 B（自研）
+├─ .claude/skills/          ← Claude Code（同构）
+└─ .workbuddy/skills/       ← WorkBuddy（同构）
 ```
 
-每个技能目录内含 `SKILL.md`、`agents/`（Codex 运行时定义）、`references/`（质量门、产物契约、排版规范、浏览器规则、运行时兼容）、`scripts/`（封面校验、外部生图、静态动感排版）。
+流水线目录内含 `SKILL.md`、`agents/`（Codex 运行时定义）、`references/`（质量门、产物契约、排版规范、浏览器规则、运行时兼容、**写作风格注册表**）、`scripts/`（封面校验、外部生图、静态动感排版）。
 
 ## License
 
 MIT，见 [LICENSE](LICENSE)。
 
-> 注意：本仓库不包含、也不分发 khazix-writer 等第三方非公开技能。使用者需自行获取并遵守其原作者授权。
+> 第三方组件的许可与署名见 [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md)。

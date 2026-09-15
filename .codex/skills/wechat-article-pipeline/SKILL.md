@@ -39,7 +39,7 @@ description: 将一个或多个网页链接整合为个人微信公众号文章�
 
 接受一个或多个 URL，以及可选的主题、角度、目标读者、个人经历、写作 Skill、输出目录和终点。
 
-- **写作技能可插拔**：通过 `writing_skill` 指定任意写作技能。未指定时，若环境中已安装 khazix-writer（第三方非公开技能，需使用者自行获取，本仓库不分发）则使用它；否则必须由用户指定一个写作技能，写作阶段才能继续。Codex 下用 `$<技能名>` 语法，Claude Code 与 WorkBuddy 下加载同名技能。
+- **写作技能可插拔**：通过 `writing_skill` 指定任意写作技能。未指定时按 `references/writing-styles.md` 的默认顺序选择（`khazix-writer` → `writing-style-plain`）。本仓库已内置这两个风格，clone 后开箱可用。Codex 下用 `$<技能名>` 语法，Claude Code 与 WorkBuddy 下加载同名技能。风格的放置规则、默认顺序与新增方法见 references/writing-styles.md。
 - 排版主题支持 `basic`（默认）与 `static-motion`。用户选择静态动感时，读取 `references/static-motion.md`，并使用 `scripts/build-static-motion.mjs` 将章节锚点转换为微信兼容的内联 HTML；新文章应通过 `--anchors <json>` 传入本篇的 `{needle,label}` 锚点，避免沿用旧稿默认锚点。
 - 未指定公众号作者时使用「吖枫」。文章来源作者只属于来源元数据，不得自动写入公众号作者字段。
 - **输出目录已预设**：默认输出到项目根目录下的 `公众号草稿/<YYYY-MM-DD>-<slug>/`（本仓库已提前创建该目录，草稿产物直接落在仓库内）。仍可通过输入参数 `output_dir` 覆盖，例如 `output_dir: 我的草稿/2026-09-14-xxx`。任务目录结构见 references/artifact-contract.md。
@@ -73,7 +73,7 @@ description: 将一个或多个网页链接整合为个人微信公众号文章�
 
 ## 阶段二：原创写作
 
-读取并完整遵循用户指定的写作 Skill。未指定时按上文「写作技能可插拔」规则确定（默认尝试 khazix-writer，需自行安装，本仓库不分发）。不要把写作技能的文风规则复制进本 Skill。
+读取并完整遵循用户指定的写作 Skill。未指定时按 `references/writing-styles.md` 的默认顺序确定。不要把写作技能的文风规则复制进本 Skill。
 
 写作前生成 writing-brief.md，至少包含：
 
@@ -186,7 +186,7 @@ writing-brief.md 中的来源归属只服务于内部核验，不等于公开文
 
 本 Skill 为跨运行时设计，同一份文件在 Codex、Claude Code、WorkBuddy 下均可运行，差异只在能力映射：
 
-- **写作技能可插拔（不分发第三方技能）**：流水线不绑定、也不打包任何写作技能。未指定时默认尝试 khazix-writer，但它是第三方非公开技能，需使用者自行获取安装；本仓库为规避版权风险不予分发。任何写作技能只要能接受「写作交接块」即可接入，通过 `writing_skill` 参数指定。Codex 下用 `$<技能名>` 引用，Claude Code 与 WorkBuddy 下加载同名技能。未安装任何写作技能时写作阶段无法继续。
+- **写作技能可插拔（内置两个风格）**：流水线不绑定单一风格，通过 `writing_skill` 参数指定。仓库已内置 `khazix-writer`（人格化长文，MIT，版权归数字生命卡兹克，该目录内附 LICENSE 原件）与 `writing-style-plain`（中性干净直白，本仓库自研）。未指定时按 `references/writing-styles.md` 的默认顺序选择，因此 clone 后开箱即可写作。Codex 下用 `$<技能名>` 引用，Claude Code 与 WorkBuddy 下加载同名技能。任何能接受「写作交接块」的技能都可接入，新增方法见 references/writing-styles.md。
 - **生图后端可插拔**：WorkBuddy 有内置 ImageGen（腾讯混元，免费按积分、无需 Key），默认使用。Codex 与 Claude Code 无内置生图，使用 `scripts/generate-image-agnes.mjs` 走 OpenAI 兼容外部后端（默认网关 `https://apihub.agnes-ai.com/v1`，默认模型 `agnes-image-2.0-flash`，密钥从环境变量 `AGNES_API_KEY` 读取，不硬编码）。WorkBuddy 下切换到 Agnes 需用户当次明确选择且环境变量存在；任一不满足即退回内置或标记 blocked，**绝不静默走外部计费路径**。
 - **配图规划（可选）**：配图规划技能用于概念/流程/数据图的视觉结构规划，需另行安装；未安装时直接用所选后端生成。要求文字精确的架构/流程图建议改用确定性渲染（Mermaid/SVG）。
 - **封面专项**：封面优先高质量档，中文标题封面可优先即梦（jimeng）等中文场景更强的后端；封面与近期文章做 SHA-256 去重与构图/主色差异检查。
