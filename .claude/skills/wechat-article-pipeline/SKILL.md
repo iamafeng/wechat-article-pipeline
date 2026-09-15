@@ -1,6 +1,6 @@
 ---
 name: wechat-article-pipeline
-description: 将一个或多个网页链接整合为个人微信公众号文章的端到端工作流（跨运行时，支持 Codex / Claude Code / WorkBuddy）。用于读取和解析网页或公众号文章、综合多来源素材、调用指定写作 Skill（可插拔，不绑定具体写作技能）重写原创长文、完成公众号排版与配图，并通过已登录浏览器保存到微信公众号草稿箱。用户提到链接写稿、公众号工作流、文章排版配图、保存公众号草稿、批量网址写文章时使用。
+description: 将一个或多个网页链接整合为个人微信公众号文章的端到端工作流（跨运行时，支持 Codex / Claude Code / WorkBuddy）。用于读取和解析网页或公众号文章、综合多来源素材、调用指定写作 Skill（可插拔，不绑定具体写作技能）重写原创长文、完成公众号排版与配图，并通过已登录浏览器保存到微信公众号草稿箱。用户提到链接写稿、公众号工作流、文章排版配图、保存公众号草稿、批量网址写文章时使用；无链接时自动调用 aihot 查询当前 AI 热点并据此选题写稿，因此「用 AI 热点写一篇公众号」「今天有什么可写的」「给我来一篇热点文章」等意图也应触发本技能。
 ---
 
 # 微信公众号文章流水线
@@ -53,12 +53,16 @@ description: 将一个或多个网页链接整合为个人微信公众号文章�
 
 ### 阶段一（前置）：无链接时的热点选题
 
-若本次未提供任何 URL，且用户未指定写作主题，先确定写什么，再进入下方「逐个读取 URL」：
+若本次未提供任何 URL，且用户未指定写作主题，先确定写什么，再进入下方「逐个读取 URL」。默认走 aihot 热点选题，且不因「技能未能自动加载」就退化为询问用户——匿名 API 永远可用：
 
-1. 检查当前运行时是否已安装 `aihot` 技能（或能通过 `https://aihot.virxact.com/api/v1/...` 匿名只读查询）。三平台均可使用 `aihot`：WorkBuddy / Claude Code 下加载该技能，Codex 下按 `aihot` 技能用 `curl` 调用其 API。
-2. 若 `aihot` 可用：调用它获取当前 AI 热点（默认 `/api/v1/items?mode=selected&window=24h&limit=10`，或按「当前最热」用 `/api/v1/hot-topics`），整理 3—6 条候选（标题 + 一句话摘要 + `links.aihot` 链接）交给用户选择要写哪一条。用户选定后，以该热点条目对应的原始链接（`links.original`）作为来源 URL，继续下方「逐个读取 URL」。
-3. 若 `aihot` 不可用：不冒充、不编造热点，改为直接询问用户「想写哪个主题，或提供一条链接」；拿到明确主题或链接后再继续。
-4. 无论哪条路径，正式进入写作阶段前都必须有确定的来源（用户提供的链接，或用户选定的热点条目原始链接，或用户明确给出的主题 + 素材）。**禁止在没有任何来源的情况下凭空生成「热点文章」**。
+1. **优先用 `aihot` 技能**：WorkBuddy / Claude Code 下加载该技能，Codex 下按其 SKILL.md 用 `curl` 调用其 API。
+2. **技能加载失败也要兜底到匿名 API**：若 `aihot` 技能因故未安装 / 未被授权 / 无法加载，不要直接询问用户，而是直接用 `curl` 匿名查询（无需 Key）：
+   - 过去 24 小时精选：`curl -sS "https://aihot.virxact.com/api/v1/items?mode=selected&window=24h&limit=10"`
+   - 当前最热：`curl -sS "https://aihot.virxact.com/api/v1/hot-topics"`
+   - 解析返回的 JSON，取 3—6 条（标题 + `summary` + `links.aihot` + `links.original`）。
+3. 把候选（标题 + 一句话摘要 + 链接）交给用户选择要写哪一条；用户选定后，以该热点条目对应的原始链接（`links.original`）作为来源 URL，继续下方「逐个读取 URL」。
+4. **仅当匿名 API 也不可达**（网络失败、返回非 JSON、服务不可用）时，才退化为直接询问用户「想写哪个主题，或提供一条链接」。**全程不冒充、不编造热点**。
+5. 无论哪条路径，正式进入写作阶段前都必须有确定的来源（用户提供的链接，或用户选定的热点条目原始链接，或用户明确给出的主题 + 素材）。**禁止在没有任何来源的情况下凭空生成「热点文章」**。
 
 ### 阶段一（正文）：读取与解析
 
@@ -198,11 +202,11 @@ writing-brief.md 中的来源归属只服务于内部核验，不等于公开文
 
 本 Skill 为跨运行时设计，同一份文件在 Codex、Claude Code、WorkBuddy 下均可运行，差异只在能力映射：
 
-- **写作技能可插拔（内置两个风格）**：流水线不绑定单一风格，通过 `writing_skill` 参数指定。仓库已内置 `khazix-writer`（人格化长文，MIT，版权归数字生命卡兹克，该目录内附 LICENSE 原件）与 `writing-style-plain`（中性干净直白，本仓库自研）。未指定时按 `references/writing-styles.md` 的默认顺序选择，因此 clone 后开箱即可写作。Codex 下用 `$<技能名>` 引用，Claude Code 与 WorkBuddy 下加载同名技能。任何能接受「写作交接块」的技能都可接入，新增方法见 references/writing-styles.md。
+- **写作技能可插拔（内置三个风格）**：流水线不绑定单一风格，通过 `writing_skill` 参数指定。仓库已内置 `khazix-writer`（人格化长文，MIT，版权归数字生命卡兹克，该目录内附 LICENSE 原件）、`writing-style-plain`（中性干净直白，本仓库自研）与 `writing-style-healing`（治愈克制风，本仓库自研，需显式指定、不进默认顺序）。未指定时按 `references/writing-styles.md` 的默认顺序选择（`khazix-writer` → `writing-style-plain`），因此 clone 后开箱即可写作。Codex 下用 `$<技能名>` 引用，Claude Code 与 WorkBuddy 下加载同名技能。任何能接受「写作交接块」的技能都可接入，新增方法见 references/writing-styles.md。
 - **生图后端可插拔**：WorkBuddy 有内置 ImageGen（腾讯混元，免费按积分、无需 Key），默认使用。Codex 与 Claude Code 无内置生图，使用 `scripts/generate-image-agnes.mjs` 走 OpenAI 兼容外部后端（默认网关 `https://apihub.agnes-ai.com/v1`，默认模型 `agnes-image-2.0-flash`，密钥从环境变量 `AGNES_API_KEY` 读取，不硬编码）。WorkBuddy 下切换到 Agnes 需用户当次明确选择且环境变量存在；任一不满足即退回内置或标记 blocked，**绝不静默走外部计费路径**。
 - **配图规划（可选）**：配图规划技能用于概念/流程/数据图的视觉结构规划，需另行安装；未安装时直接用所选后端生成。要求文字精确的架构/流程图建议改用确定性渲染（Mermaid/SVG）。
 - **封面专项**：封面优先高质量档，中文标题封面可优先即梦（jimeng）等中文场景更强的后端；封面与近期文章做 SHA-256 去重与构图/主色差异检查。
-- **无链接兜底（可选 aihot）**：未提供 URL 时，流水线默认调用 `aihot` 技能查询当前 AI 热点并整理候选供用户选择；`aihot` 未安装时改为询问，不冒充热点来源。该技能为匿名只读、无需 Key，WorkBuddy / Claude Code 直接加载，Codex 按其 SKILL.md 用 `curl` 调用 API。
+- **无链接兜底（aihot 热点选题）**：未提供 URL 时，流水线默认调用 `aihot` 技能查询当前 AI 热点并整理候选供用户选择；**即使 `aihot` 技能未能加载 / 未被授权，也直接用其匿名 API（`curl`，无需 Key）兜底，不立即退化为询问**。该技能匿名只读、无需 Key，WorkBuddy / Claude Code 直接加载，Codex 按其 SKILL.md 用 `curl` 调用 API。
 - **浏览器能力按运行时映射**：读取来源与保存草稿的浏览器操作，在 Codex 下走 CDP / chrome-devtools MCP，Claude Code 下走 Playwright 或 chrome-devtools MCP，WorkBuddy 下走 agent-browser。见 references/browser-publishing.md、browser-recovery.md、runtime-compatibility.md。
 - **输出目录已预设**：默认 `公众号草稿/<YYYY-MM-DD>-<slug>/`（仓库根目录，已提前创建），支持通过 `output_dir` 覆盖；该目录已加入 .gitignore，草稿产物留在本地、不随仓库推送。
 - **Codex 运行时文件**：`agents/openai.yaml` 为 Codex/OpenAI Agents 运行时定义，仅 Codex 读取；Claude Code 与 WorkBuddy 忽略该文件，不影响运行。
